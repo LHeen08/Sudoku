@@ -1,45 +1,47 @@
-<template >
+<template>
   <div class="sudoku">
     <div class="row">
-    <h2>Sudoku</h2>
+      <h2>Sudoku</h2>
 
       <strong>
         {{ formattedTime }}
       </strong>
 
-<!--      whenever difficulty is changed a new puzzle is generated-->
+      <!--      whenever difficulty is changed a new puzzle is generated-->
       <select v-model="difficulty" @change="generatePuzzle()">
         <option
-          v-for="(display, chooseDifficulty) in chooseDifficulty" :key="chooseDifficulty"
-          :value="chooseDifficulty">
-          {{display}}
+            v-for="(display, chooseDifficulty) in chooseDifficulty" :key="chooseDifficulty"
+            :value="chooseDifficulty"
+        >
+          {{ display }}
         </option>
       </select>
 
 
     </div>
     <div class="grid">
+
       <div
           class="row"
           v-for="(row, rowIndex) in puzzle" :key="rowIndex"
 
       >
-        <div
-            class="cell" :class="{
+<!--        if needHelp is active output the solution cells, otherwise output the normal game-->
+          <div
+               class="cell" :class="{
               'border-right' : colIndex === 2 || colIndex === 5,
               'border-bottom' : rowIndex === 2 || rowIndex === 5,
               'original' : cell.original,
               'active' : activeRow === rowIndex && activeCol === colIndex,
               'invalid' : cell.value && isCellInvalid(rowIndex, colIndex, cell.value)
             }"
-            v-for="(cell, colIndex) in row" :key="colIndex"
-            @click="setCellActive(rowIndex, colIndex, cell.original)"
-        >
+               v-for="(cell, colIndex) in row" :key="colIndex"
+               @click="setCellActive(rowIndex, colIndex, cell.original)"
+          >
 
-          {{ cell.value }}
+            {{cell.value}}
 
-        </div>
-
+          </div>
       </div>
     </div>
 
@@ -55,16 +57,28 @@
         {{ value + 1 }}
       </button>
 
-<!--      set cell to null for cell reset-->
+      <!--      set cell to null for cell reset-->
       <button
-        type="button"
-        class="btn"
-        @click="setCellValue(null)"
-        :disabled="activeRow == -1 || activeCol === -1"
-        >
+          type="button"
+          class="btn"
+          @click="setCellValue(null)"
+          :disabled="activeRow == -1 || activeCol === -1"
+      >
 
-<!--        display clear char-->
+        <!--        display clear char-->
         &Oslash;
+      </button>
+    </div>
+
+    <div class="row row-centered">
+      <button
+          type="button"
+          class="helpBtn"
+          id="help"
+          @click="seeHint()"
+          :disabled="activeRow === -1 || activeCol === -1"
+      >
+        Hint
       </button>
 
     </div>
@@ -79,6 +93,9 @@ export default {
   data() {
     return {
       puzzle: [],
+      //possible solution array
+      solution: [],
+      needHelp: false,
       difficulty: 'easy',
       activeRow: -1,
       activeCol: -1,
@@ -99,16 +116,16 @@ export default {
   mounted() {
     this.generatePuzzle()
   },
-  computed:{
-    formattedTime(){
+  computed: {
+    formattedTime() {
       let min = Math.floor(this.seconds / 60)
       let sec = this.seconds % 60
 
-      if (min < 10){
+      if (min < 10) {
         min = `0${min}`
       }
 
-      if (sec < 10){
+      if (sec < 10) {
         sec = `0${sec}`
       }
 
@@ -116,18 +133,37 @@ export default {
     }
   },
   methods: {
+
+    //  So we generate the puzzle
+    //  we should also generate the solution based on the given puzzle
+    //  need to find out how to output the solution onto the puzzle
+
     generatePuzzle() {
       const boardString = sudoku.generate(this.difficulty);
-      // Convert to grid using the given methods from sudoku.js
-      this.puzzle = sudoku.board_string_to_grid(boardString)
-          .map(row => {
-            return row.map(cell => {
-              return {
-                value: cell !== '.' ? parseInt(cell) : null,
-                original: cell !== '.'
-              }
-            })
-          })
+      const solution = sudoku.solve(boardString);
+
+      //  Put into map to find out original cells vs non original and replace the '.' with empty null character
+      this.puzzle = sudoku.board_string_to_grid(boardString).map(row => {
+        return row.map(cell => {
+          return {
+            value: cell !== '.' ? parseInt(cell) : null,
+            original: cell !== '.'
+          }
+        })
+      })
+
+      // need to put it into a grid not just a string
+      //  Also generate the solution
+      this.solution = sudoku.board_string_to_grid(solution).map(row => {
+        return row.map(cell => {
+          return {
+            value: parseInt(cell)
+          }
+        })
+      });
+
+
+      //  Timer to generate when the puzzle is generated
       this.seconds = 0
       clearInterval(this.timer)
       this.timer = setInterval(() => {
@@ -155,11 +191,11 @@ export default {
       this.activeRow = -1
       this.activeCol = -1
 
-      if (this.isGameComplete()){
+      if (this.isGameComplete()) {
         const msg = [
-            'Success!',
-            `Dificulty: ${this.chooseDifficulty[this.difficulty]}`,
-            `Time: ${this.formattedTime}`
+          'Success!',
+          `Difficulty: ${this.chooseDifficulty[this.difficulty]}`,
+          `Time: ${this.formattedTime}`
         ]
 
         alert(msg.join('\n'))
@@ -197,10 +233,13 @@ export default {
       return false
 
     },
-    isGameComplete(){
-      for (let r = 0; r < 9; r++){
-        for (let c = 0; c < 9; c++){
-          if (this.isCellInvalid(r, c, this.puzzle[r][c].value)){
+    seeHint(){
+      alert('Try '+ this.solution[this.activeRow][this.activeCol].value)
+    },
+    isGameComplete() {
+      for (let r = 0; r < 9; r++) {
+        for (let c = 0; c < 9; c++) {
+          if (this.isCellInvalid(r, c, this.puzzle[r][c].value)) {
             return false
           }
         }
@@ -215,7 +254,7 @@ export default {
 html {
   width: 100%;
   min-height: 100%;
-  background: linear-gradient(0deg, rgba(222,98,98,1)0%, rgba(255,184,140,1)100% );
+  background: linear-gradient(0deg, rgba(222, 98, 98, 1) 0%, rgba(255, 184, 140, 1) 100%);
 }
 </style>
 
@@ -296,6 +335,17 @@ html {
 
 .btn:disabled {
   cursor: not-allowed;
+}
+
+.row-centered {
+  justify-content: center;
+  margin: .5rem;
+}
+
+.helpBtn {
+  width: 50px;
+  height: 30px;
+  align-items: center;
 }
 
 </style>
